@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"npm run dev-backend\"",
     "dev-backend": "npm --prefix ./express-ports-backend start",
+    "postinstall": "npm install --prefix ./express-ports-backend || exit 0",
     "build": "vite build",
     "preview": "vite preview",
     "format": "prettier --write src/"
