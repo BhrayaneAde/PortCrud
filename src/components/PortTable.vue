@@ -175,36 +175,49 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import Swal from 'sweetalert2'
 
+// Références
 const ports = ref([])
 const filterSite = ref('')
 const sortBy = ref('port')
 const sortAsc = ref(true)
-
 const editId = ref(null)
 const editPortData = ref({})
 const showEditModal = ref(false)
 
+// URL de base de l'API (adapter selon ton setup)
+const API_BASE = 'http://localhost:3000/api'
+
+// Charger les ports via API
+async function fetchPorts() {
+  try {
+    const res = await fetch(`${API_BASE}/ports`)
+    if (!res.ok) throw new Error('Erreur lors du chargement des ports')
+    ports.value = await res.json()
+  } catch (error) {
+    console.error(error)
+    Swal.fire('Erreur', 'Impossible de charger les ports depuis le serveur.', 'error')
+  }
+}
+
 onMounted(() => {
-  const saved = localStorage.getItem('ports')
-  ports.value = saved ? JSON.parse(saved) : []
+  fetchPorts()
 })
 
-// Filtrage
+// Tri et filtrage (pas changé)
 const filteredPorts = computed(() => {
   return filterSite.value ? ports.value.filter((p) => p.site === filterSite.value) : ports.value
 })
-
-// Tri
 const sortedPorts = computed(() => {
   const arr = [...filteredPorts.value]
   arr.sort((a, b) => {
     let valA = a[sortBy.value]
     let valB = b[sortBy.value]
-    // Convertir en nombre si possible pour un tri correct
+
     if (!isNaN(valA) && !isNaN(valB)) {
       valA = Number(valA)
       valB = Number(valB)
     }
+
     if (valA < valB) return sortAsc.value ? -1 : 1
     if (valA > valB) return sortAsc.value ? 1 : -1
     return 0
@@ -212,7 +225,7 @@ const sortedPorts = computed(() => {
   return arr
 })
 
-// Export PDF
+// Export PDF (pas changé)
 function exportToPDF() {
   const doc = new jsPDF()
   doc.text('Liste des Ports Réseaux', 14, 15)
@@ -224,58 +237,68 @@ function exportToPDF() {
   doc.save('ports_reseaux.pdf')
 }
 
-// Démarrer édition
+// Démarrer l’édition (pas changé)
 function startEdit(port) {
   editId.value = port.id
-  editPortData.value = { ...port } // copie profonde
-  showEditModal.value = false // On affiche directement dans le tableau
+  editPortData.value = { ...port }
+  showEditModal.value = true
 }
 
-// Annuler édition
+// Annuler l’édition (pas changé)
 function cancelEdit() {
   editId.value = null
   editPortData.value = {}
   showEditModal.value = false
 }
 
-// Enregistrer édition
-function saveEdit(id) {
-  if (!editPortData.value.etage_ilot || !editPortData.value.prise || !editPortData.value.port) {
-    Swal.fire(
-      'Erreur',
-      'Veuillez remplir les champs obligatoires (Étage/Îlot, Prise, Port).',
-      'error',
-    )
-    return
-  }
+// Sauvegarder l’édition — Appel API PUT /api/ports/:id
+async function saveEdit(id) {
+  try {
+    const res = await fetch(`${API_BASE}/ports/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editPortData.value),
+    })
+    if (!res.ok) throw new Error('Erreur lors de la mise à jour')
 
-  const index = ports.value.findIndex((p) => p.id === id)
-  if (index !== -1) {
-    ports.value[index] = { ...editPortData.value }
-    localStorage.setItem('ports', JSON.stringify(ports.value))
-    Swal.fire('Succès', 'Port modifié avec succès.', 'success')
+    const updatedPort = await res.json()
+
+    const index = ports.value.findIndex((p) => p.id === id)
+    if (index !== -1) {
+      ports.value[index] = updatedPort
+      Swal.fire('Succès', 'Les informations du port ont été mises à jour.', 'success')
+    }
     cancelEdit()
-  } else {
-    Swal.fire('Erreur', 'Port introuvable.', 'error')
+  } catch (error) {
+    console.error(error)
+    Swal.fire('Erreur', 'Impossible de mettre à jour le port.', 'error')
   }
 }
 
-// Supprimer port
-function deletePort(id) {
-  Swal.fire({
-    title: 'Confirmer la suppression',
-    text: 'Voulez-vous vraiment supprimer ce port ?',
+// Supprimer un port — Appel API DELETE /api/ports/:id
+async function deletePort(id) {
+  const result = await Swal.fire({
+    title: 'Êtes-vous sûr ?',
+    text: 'Cette action est irréversible !',
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'Oui, supprimer',
-    cancelButtonText: 'Annuler',
-  }).then((result) => {
-    if (result.isConfirmed) {
-      ports.value = ports.value.filter((p) => p.id !== id)
-      localStorage.setItem('ports', JSON.stringify(ports.value))
-      Swal.fire('Supprimé', 'Le port a été supprimé.', 'success')
-    }
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Oui, supprimer !',
   })
+
+  if (result.isConfirmed) {
+    try {
+      const res = await fetch(`${API_BASE}/ports/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Erreur lors de la suppression')
+
+      ports.value = ports.value.filter((p) => p.id !== id)
+      Swal.fire('Supprimé !', 'Le port a été supprimé.', 'success')
+    } catch (error) {
+      console.error(error)
+      Swal.fire('Erreur', 'Impossible de supprimer le port.', 'error')
+    }
+  }
 }
 </script>
 

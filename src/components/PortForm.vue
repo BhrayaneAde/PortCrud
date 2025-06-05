@@ -72,25 +72,33 @@ function resetForm() {
   Object.assign(port, initialPort())
 }
 
-function savePort() {
-  const ports = JSON.parse(localStorage.getItem('ports') || '[]')
-  const priseExists = ports.some((p) => p.prise === port.prise)
-  if (priseExists) {
+async function savePort() {
+  try {
+    const response = await fetch('http://localhost:3000/api/ports', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(port),
+    })
+
+    if (!response.ok) {
+      throw new Error("Erreur lors de l'enregistrement")
+    }
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Succès',
+      text: 'Port enregistré avec succès.',
+    }).then(() => {
+      resetForm()
+    })
+  } catch (error) {
     Swal.fire({
       icon: 'error',
       title: 'Erreur',
-      text: 'Le numéro de la prise est déjà enregistré.',
+      text: error.message,
     })
-    return
   }
-  ports.push({ ...port, id: Date.now() })
-  localStorage.setItem('ports', JSON.stringify(ports))
-  Swal.fire({
-    icon: 'success',
-    title: 'Succès',
-    text: 'Port enregistré avec succès.',
-  }).then(() => {
-    resetForm()
-  })
 }
 </script>
